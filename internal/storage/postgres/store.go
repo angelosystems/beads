@@ -163,11 +163,4 @@ func (s *PostgresStore) withTx(ctx context.Context, actor string, fn func(tx *sq
 }
 
 // Compile-time check: PostgresStore satisfies storage.Storage.
-//
-// Note: this currently fails because we have not implemented all 40+ methods
-// yet. Will be uncommented once the full interface is implemented in
-// follow-up commits. Until then, callers can use the partial implementation
-// directly without going through the storage.Storage abstraction.
-//
-// var _ storage.Storage = (*PostgresStore)(nil)
-var _ = storage.ErrNotFound // keep storage import alive
+var _ storage.Storage = (*PostgresStore)(nil)
