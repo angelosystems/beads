@@ -13,7 +13,23 @@ import (
 	"github.com/steveyegge/beads/internal/storage"
 	"github.com/steveyegge/beads/internal/storage/dolt"
 	"github.com/steveyegge/beads/internal/storage/embeddeddolt"
+	"github.com/steveyegge/beads/internal/storage/postgres"
 )
+
+// newPostgresStoreFromConfig opens a Postgres-backed store using the
+// connection string + rig from metadata.json (or BD_POSTGRES_URI env).
+// The returned store satisfies storage.DoltStorage via stubs in postgres/lifecycle.go;
+// Dolt-specific operations error with clear messages.
+func newPostgresStoreFromConfig(ctx context.Context, cfg *configfile.Config) (storage.DoltStorage, error) {
+	connStr := cfg.GetPostgresURI()
+	if connStr == "" {
+		return nil, fmt.Errorf("postgres backend selected but no connection string set (configure postgres_uri in metadata.json or BD_POSTGRES_URI env)")
+	}
+	return postgres.Open(ctx, postgres.Config{
+		ConnString: connStr,
+		Rig:        cfg.GetPostgresRig(),
+	})
+}
 
 // isEmbeddedMode returns true when the current session is using the embedded
 // Dolt engine (the default). Returns false in server mode (external dolt
@@ -60,13 +76,20 @@ func acquireEmbeddedLock(beadsDir string, serverMode bool) (embeddeddolt.Unlocke
 }
 
 // newDoltStoreFromConfig creates a storage backend from the beads directory's
-// persisted metadata.json configuration. Uses embedded Dolt by default;
-// connects to dolt sql-server when dolt_mode is "server".
+// persisted metadata.json configuration. When backend is "postgres", opens a
+// Postgres-backed store; otherwise uses embedded Dolt by default and connects
+// to dolt sql-server when dolt_mode is "server".
+//
+// The function name retains "Dolt" for historical reasons; in practice it is
+// the generic "store from config" entry point and dispatches on Backend.
 //
 // For embedded mode, legacy hyphenated database names (pre-GH#2142) are
 // auto-sanitized to underscores and the fix is persisted to metadata.json.
 func newDoltStoreFromConfig(ctx context.Context, beadsDir string) (storage.DoltStorage, error) {
 	cfg, err := configfile.Load(beadsDir)
+	if err == nil && cfg.IsPostgresBackend() {
+		return newPostgresStoreFromConfig(ctx, cfg)
+	}
 	if err == nil && cfg != nil && cfg.IsDoltServerMode() {
 		return dolt.NewFromConfig(ctx, beadsDir)
 	}
@@ -131,6 +154,12 @@ func migrateHyphenatedDB(beadsDir string, cfg *configfile.Config, oldName, newNa
 // hydration from mutating foreign projects (GH#3231).
 func newReadOnlyStoreFromConfig(ctx context.Context, beadsDir string) (storage.DoltStorage, error) {
 	cfg, err := configfile.Load(beadsDir)
+	if err == nil && cfg.IsPostgresBackend() {
+		// Postgres has no separate read-only open path; the underlying server
+		// can be opened normally and read-only constraints are enforced via
+		// schema permissions rather than a flag in the client.
+		return newPostgresStoreFromConfig(ctx, cfg)
+	}
 	if err == nil && cfg != nil && cfg.IsDoltServerMode() {
 		return dolt.NewFromConfigWithOptions(ctx, beadsDir, &dolt.Config{ReadOnly: true})
 	}

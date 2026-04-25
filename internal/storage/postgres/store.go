@@ -162,5 +162,12 @@ func (s *PostgresStore) withTx(ctx context.Context, actor string, fn func(tx *sq
 	return nil
 }
 
-// Compile-time check: PostgresStore satisfies storage.Storage.
-var _ storage.Storage = (*PostgresStore)(nil)
+// Compile-time checks: PostgresStore satisfies the full DoltStorage interface
+// (which composes storage.Storage with Dolt-specific capability sub-interfaces).
+// Dolt-only operations (DoltGC, Flatten, Compact, BackupAdd/Sync/Remove) are
+// stubbed in lifecycle.go to error with clear messages — Postgres callers
+// should not invoke them.
+var (
+	_ storage.Storage     = (*PostgresStore)(nil)
+	_ storage.DoltStorage = (*PostgresStore)(nil)
+)

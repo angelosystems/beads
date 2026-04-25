@@ -816,6 +816,31 @@ var rootCmd = &cobra.Command{
 		// Initialize direct storage access
 		var err error
 
+		// Postgres-backend short-circuit: when metadata.json says
+		// "backend": "postgres", skip the entire Dolt-config dance and open
+		// the Postgres store directly. The DoltStorage interface stubs in
+		// internal/storage/postgres/ ensure CLI code paths that type-assert
+		// on Dolt-only capabilities (Push, Pull, Branch, etc.) get clear
+		// errors instead of silent misbehavior.
+		if pgCfg, _ := configfile.Load(beadsDir); pgCfg != nil && pgCfg.IsPostgresBackend() {
+			store, err = newPostgresStoreFromConfig(rootCtx, pgCfg)
+			if err != nil {
+				FatalError("failed to open postgres database: %v", err)
+			}
+			storeIsReadOnly = useReadOnly
+			storeMutex.Lock()
+			storeActive = true
+			storeMutex.Unlock()
+			if hookRunner == nil && dbPath != "" {
+				dirForHooks := filepath.Dir(dbPath)
+				hookRunner = hooks.NewRunner(filepath.Join(dirForHooks, "hooks"))
+			}
+			if hookRunner != nil && store != nil && !config.GetBool("no-hooks") {
+				store = storage.NewHookFiringStore(store, hookRunner)
+			}
+			return
+		}
+
 		// Create Dolt storage config — resolve dolt data dir which may be
 		// on a different filesystem (e.g., ext4 for performance on WSL).
 		doltPath := doltserver.ResolveDoltDir(beadsDir)

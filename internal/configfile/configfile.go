@@ -15,7 +15,16 @@ const ConfigFileName = "metadata.json"
 
 type Config struct {
 	Database string `json:"database"`
-	Backend  string `json:"backend,omitempty"` // Deprecated: always "dolt". Kept for JSON compat.
+	Backend  string `json:"backend,omitempty"` // "dolt" (default) or "postgres"
+
+	// Postgres backend configuration (active when Backend == "postgres")
+	// PostgresURI is a libpq-style connection string, e.g.
+	//   postgres://user:pass@host:5432/dbname?sslmode=disable
+	// May also be set via BD_POSTGRES_URI / BEADS_POSTGRES_URI env var.
+	PostgresURI string `json:"postgres_uri,omitempty"`
+	// PostgresRig is the rig identifier this store is scoped to. Every
+	// row read/written is filtered by this rig. Empty defaults to "default".
+	PostgresRig string `json:"postgres_rig,omitempty"`
 
 	// Deletions configuration
 	DeletionsRetentionDays int `json:"deletions_retention_days,omitempty"` // 0 means use default (3 days)
@@ -173,8 +182,36 @@ func (c *Config) GetStaleClosedIssuesDays() int {
 
 // Backend constants
 const (
-	BackendDolt = "dolt"
+	BackendDolt     = "dolt"
+	BackendPostgres = "postgres"
 )
+
+// IsPostgresBackend reports whether this config selects the Postgres backend.
+func (c *Config) IsPostgresBackend() bool {
+	return c != nil && c.Backend == BackendPostgres
+}
+
+// GetPostgresURI returns the Postgres connection string. Falls back to
+// BD_POSTGRES_URI / BEADS_POSTGRES_URI env var if the config field is empty.
+// Returns "" when neither config nor env var is set.
+func (c *Config) GetPostgresURI() string {
+	if c != nil && c.PostgresURI != "" {
+		return c.PostgresURI
+	}
+	if v := os.Getenv("BD_POSTGRES_URI"); v != "" {
+		return v
+	}
+	return os.Getenv("BEADS_POSTGRES_URI")
+}
+
+// GetPostgresRig returns the rig identifier for the Postgres store, defaulting
+// to "default" when unset.
+func (c *Config) GetPostgresRig() string {
+	if c != nil && c.PostgresRig != "" {
+		return c.PostgresRig
+	}
+	return "default"
+}
 
 // BackendCapabilities describes behavioral constraints for a storage backend.
 //
@@ -191,9 +228,13 @@ type BackendCapabilities struct {
 }
 
 // CapabilitiesForBackend returns capabilities for a backend string.
-// Dolt is the only supported backend. Returns SingleProcessOnly=true by default;
-// use Config.GetCapabilities() to properly handle server mode.
-func CapabilitiesForBackend(_ string) BackendCapabilities {
+// Postgres handles concurrent connections natively (SingleProcessOnly=false);
+// embedded Dolt is single-process. Use Config.GetCapabilities() to properly
+// handle server mode for Dolt.
+func CapabilitiesForBackend(backend string) BackendCapabilities {
+	if backend == BackendPostgres {
+		return BackendCapabilities{SingleProcessOnly: false}
+	}
 	return BackendCapabilities{SingleProcessOnly: true}
 }
 
