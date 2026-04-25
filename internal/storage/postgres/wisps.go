@@ -35,13 +35,12 @@ func (s *PostgresStore) CreateWisp(ctx context.Context, wisp *types.Issue, actor
 	if wisp == nil {
 		return errors.New("postgres: CreateWisp: nil wisp")
 	}
-	if wisp.ID == "" {
-		return errors.New("postgres: CreateWisp: empty wisp ID")
-	}
-
-	metadata := normalizeMetadata(wisp.Metadata)
 
 	return s.withTx(ctx, actor, func(tx *sql.Tx) error {
+		if err := ensureIssueID(ctx, tx, s.rig, "wisps", wisp, actor); err != nil {
+			return err
+		}
+		metadata := normalizeMetadata(wisp.Metadata)
 		const q = `
 			INSERT INTO beads.wisps (
 				id, rig, title, description, design, acceptance_criteria, notes,

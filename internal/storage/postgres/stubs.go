@@ -26,123 +26,119 @@ import (
 var errPostgresNotSupported = errors.New("operation is dolt-specific and not supported by the postgres backend")
 
 // ════════════════════════════════════════════════════════════════════════
-// VersionControl — entirely Dolt-specific
+// VersionControl — Dolt-specific. In Postgres these are no-ops: the data is
+// already durable + replicated at the database layer; "branches" and "commits"
+// are not part of the storage model. Returning nil lets callers (Mayor's
+// post-action Push, the auto-export hook, sync workers) flow through without
+// errors. Read-side methods return empty values that are honestly empty, not
+// errors, so dashboards and doctors don't paint red.
 // ════════════════════════════════════════════════════════════════════════
 
-func (s *PostgresStore) Branch(ctx context.Context, name string) error { return errPostgresNotSupported }
-func (s *PostgresStore) Checkout(ctx context.Context, branch string) error {
-	return errPostgresNotSupported
-}
-func (s *PostgresStore) CurrentBranch(ctx context.Context) (string, error) {
-	return "", errPostgresNotSupported
-}
-func (s *PostgresStore) DeleteBranch(ctx context.Context, branch string) error {
-	return errPostgresNotSupported
-}
-func (s *PostgresStore) ListBranches(ctx context.Context) ([]string, error) {
-	return nil, errPostgresNotSupported
-}
-func (s *PostgresStore) Commit(ctx context.Context, message string) error {
-	return errPostgresNotSupported
-}
+func (s *PostgresStore) Branch(ctx context.Context, name string) error          { return nil }
+func (s *PostgresStore) Checkout(ctx context.Context, branch string) error      { return nil }
+func (s *PostgresStore) CurrentBranch(ctx context.Context) (string, error)      { return "", nil }
+func (s *PostgresStore) DeleteBranch(ctx context.Context, branch string) error  { return nil }
+func (s *PostgresStore) ListBranches(ctx context.Context) ([]string, error)     { return nil, nil }
+func (s *PostgresStore) Commit(ctx context.Context, message string) error       { return nil }
 func (s *PostgresStore) CommitWithConfig(ctx context.Context, message string) error {
-	return errPostgresNotSupported
+	return nil
 }
 func (s *PostgresStore) CommitExists(ctx context.Context, commitHash string) (bool, error) {
 	return false, nil
 }
 func (s *PostgresStore) GetCurrentCommit(ctx context.Context) (string, error) {
-	return "", errPostgresNotSupported
+	return "", nil
 }
 func (s *PostgresStore) Status(ctx context.Context) (*storage.Status, error) {
 	return &storage.Status{}, nil
 }
 func (s *PostgresStore) Log(ctx context.Context, limit int) ([]storage.CommitInfo, error) {
-	return nil, errPostgresNotSupported
+	return nil, nil
 }
 func (s *PostgresStore) Merge(ctx context.Context, branch string) ([]storage.Conflict, error) {
-	return nil, errPostgresNotSupported
+	return nil, nil
 }
 func (s *PostgresStore) GetConflicts(ctx context.Context) ([]storage.Conflict, error) {
 	return nil, nil
 }
 func (s *PostgresStore) ResolveConflicts(ctx context.Context, table, strategy string) error {
-	return errPostgresNotSupported
+	return nil
 }
 
 // ════════════════════════════════════════════════════════════════════════
-// RemoteStore — Dolt-remote operations
+// RemoteStore — Dolt-remote operations. No-op in Postgres world; the DB IS
+// the remote (Postgres lives on the same host as the consumers, future
+// multi-host story is logical replication, not bd-CLI push).
 // ════════════════════════════════════════════════════════════════════════
 
-func (s *PostgresStore) AddRemote(ctx context.Context, name, url string) error {
-	return errPostgresNotSupported
-}
-func (s *PostgresStore) RemoveRemote(ctx context.Context, name string) error {
-	return errPostgresNotSupported
-}
+func (s *PostgresStore) AddRemote(ctx context.Context, name, url string) error    { return nil }
+func (s *PostgresStore) RemoveRemote(ctx context.Context, name string) error      { return nil }
 func (s *PostgresStore) HasRemote(ctx context.Context, name string) (bool, error) { return false, nil }
 func (s *PostgresStore) ListRemotes(ctx context.Context) ([]storage.RemoteInfo, error) {
 	return nil, nil
 }
-func (s *PostgresStore) Push(ctx context.Context) error      { return errPostgresNotSupported }
-func (s *PostgresStore) Pull(ctx context.Context) error      { return errPostgresNotSupported }
-func (s *PostgresStore) ForcePush(ctx context.Context) error { return errPostgresNotSupported }
+func (s *PostgresStore) Push(ctx context.Context) error      { return nil }
+func (s *PostgresStore) Pull(ctx context.Context) error      { return nil }
+func (s *PostgresStore) ForcePush(ctx context.Context) error { return nil }
 func (s *PostgresStore) PushRemote(ctx context.Context, remote string, force bool) error {
-	return errPostgresNotSupported
+	return nil
 }
 func (s *PostgresStore) PullRemote(ctx context.Context, remote string) error {
-	return errPostgresNotSupported
+	return nil
 }
 func (s *PostgresStore) Fetch(ctx context.Context, peer string) error {
-	return errPostgresNotSupported
+	return nil
 }
 func (s *PostgresStore) PushTo(ctx context.Context, peer string) error {
-	return errPostgresNotSupported
+	return nil
 }
 func (s *PostgresStore) PullFrom(ctx context.Context, peer string) ([]storage.Conflict, error) {
 	return nil, errPostgresNotSupported
 }
 
 // ════════════════════════════════════════════════════════════════════════
-// FederationStore
+// FederationStore — Dolt's peer-to-peer cluster pattern. Postgres has logical
+// replication, not a per-peer ACL list. No-op for now.
 // ════════════════════════════════════════════════════════════════════════
 
 func (s *PostgresStore) AddFederationPeer(ctx context.Context, peer *storage.FederationPeer) error {
-	return errPostgresNotSupported
+	return nil
 }
 func (s *PostgresStore) GetFederationPeer(ctx context.Context, name string) (*storage.FederationPeer, error) {
-	return nil, errPostgresNotSupported
+	return nil, storage.ErrNotFound
 }
 func (s *PostgresStore) ListFederationPeers(ctx context.Context) ([]*storage.FederationPeer, error) {
 	return nil, nil
 }
 func (s *PostgresStore) RemoveFederationPeer(ctx context.Context, name string) error {
-	return errPostgresNotSupported
+	return nil
 }
 
 // ════════════════════════════════════════════════════════════════════════
-// SyncStore
+// SyncStore — Dolt-specific peer sync. No-op in Postgres world.
 // ════════════════════════════════════════════════════════════════════════
 
 func (s *PostgresStore) Sync(ctx context.Context, peer, strategy string) (*storage.SyncResult, error) {
-	return nil, errPostgresNotSupported
+	return &storage.SyncResult{}, nil
 }
 func (s *PostgresStore) SyncStatus(ctx context.Context, peer string) (*storage.SyncStatus, error) {
-	return nil, errPostgresNotSupported
+	return &storage.SyncStatus{}, nil
 }
 
 // ════════════════════════════════════════════════════════════════════════
-// HistoryViewer — could be implemented via audit tables; stubbed for now
+// HistoryViewer — TODO: implement via beads.issues_audit. Empty for now so
+// `bd show` and friends don't error; the audit data is being captured by the
+// trigger, just not yet exposed.
 // ════════════════════════════════════════════════════════════════════════
 
 func (s *PostgresStore) History(ctx context.Context, issueID string) ([]*storage.HistoryEntry, error) {
-	return nil, errPostgresNotSupported
+	return nil, nil
 }
 func (s *PostgresStore) AsOf(ctx context.Context, issueID, ref string) (*types.Issue, error) {
-	return nil, errPostgresNotSupported
+	return s.GetIssue(ctx, issueID)
 }
 func (s *PostgresStore) Diff(ctx context.Context, fromRef, toRef string) ([]*storage.DiffEntry, error) {
-	return nil, errPostgresNotSupported
+	return nil, nil
 }
 
 // ════════════════════════════════════════════════════════════════════════
@@ -198,8 +194,40 @@ func (s *PostgresStore) GetDependencyCounts(ctx context.Context, issueIDs []stri
 func (s *PostgresStore) GetBlockingInfoForIssues(ctx context.Context, issueIDs []string) (map[string][]string, map[string][]string, map[string]string, error) {
 	return nil, nil, nil, errPostgresNotSupported
 }
+// IsBlocked checks whether issueID has any open blocker dependencies.
+// Mirrors dolt.IsBlocked semantics: blocks, waits-for, and conditional-blocks
+// dependency types count as blocking when the target is not closed/pinned.
+// Returns (true, blockerIDs, nil) if blocked, (false, nil, nil) otherwise.
 func (s *PostgresStore) IsBlocked(ctx context.Context, issueID string) (bool, []string, error) {
-	return false, nil, errPostgresNotSupported
+	const q = `
+		SELECT d.depends_on_id
+		FROM beads.dependencies d
+		JOIN beads.issues i ON d.depends_on_id = i.id
+		WHERE d.issue_id = $1
+		  AND d.rig = $2
+		  AND d.deleted_at IS NULL
+		  AND d.type IN ('blocks', 'waits-for', 'conditional-blocks')
+		  AND i.status NOT IN ('closed', 'pinned')
+		  AND i.deleted_at IS NULL
+	`
+	rows, err := s.db.QueryContext(ctx, q, issueID, s.rig)
+	if err != nil {
+		return false, nil, fmt.Errorf("postgres: IsBlocked query: %w", err)
+	}
+	defer rows.Close()
+
+	var blockers []string
+	for rows.Next() {
+		var blockerID string
+		if err := rows.Scan(&blockerID); err != nil {
+			return false, nil, fmt.Errorf("postgres: IsBlocked scan: %w", err)
+		}
+		blockers = append(blockers, blockerID)
+	}
+	if err := rows.Err(); err != nil {
+		return false, nil, fmt.Errorf("postgres: IsBlocked iterate: %w", err)
+	}
+	return len(blockers) > 0, blockers, nil
 }
 func (s *PostgresStore) GetNewlyUnblockedByClose(ctx context.Context, closedIssueID string) ([]*types.Issue, error) {
 	return nil, errPostgresNotSupported

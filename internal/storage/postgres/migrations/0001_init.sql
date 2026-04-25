@@ -93,8 +93,15 @@ $$ LANGUAGE plpgsql;
 -- Postgres 16 lacks native uuidv7(); this is a portable implementation.
 -- When Postgres 17+ ships native uuidv7(), this function can be replaced
 -- without any caller changes (same signature).
+-- pgcrypto's gen_random_bytes lives in the beads schema (where we installed
+-- the extension). We pin search_path on this function so it resolves the
+-- helper regardless of the caller's session search_path. Without this,
+-- INSERTs from connections that don't include `beads` in search_path fail
+-- with "function gen_random_bytes(integer) does not exist".
 CREATE OR REPLACE FUNCTION beads.uuidv7()
-RETURNS UUID AS $$
+RETURNS UUID
+SET search_path = beads, pg_catalog
+AS $$
 DECLARE
     unix_ts_ms BIGINT;
     uuid_bytes BYTEA;

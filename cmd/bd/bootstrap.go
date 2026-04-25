@@ -633,7 +633,13 @@ func finalizeSyncedBootstrap(beadsDir, syncRemote string, cfg *configfile.Config
 	// be DefaultConfig when metadata.json was absent, or a parent workspace
 	// config propagated by findParentConfig), then fill in the bits
 	// required by configfile.Load consumers.
-	cfg.Backend = configfile.BackendDolt
+	//
+	// Honor Postgres backend when explicitly configured — bootstrap defaults
+	// to Dolt only when Backend is empty/unset, otherwise it would silently
+	// revert metadata.json from postgres to dolt on first auto-bootstrap.
+	if cfg.Backend == "" {
+		cfg.Backend = configfile.BackendDolt
+	}
 	cfg.DoltDatabase = dbName
 	if cfg.IsDoltServerMode() || doltserver.IsSharedServerMode() {
 		cfg.DoltMode = configfile.DoltModeServer

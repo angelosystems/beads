@@ -87,11 +87,11 @@ func (t *pgTransaction) CreateIssue(ctx context.Context, issue *types.Issue, act
 	if issue == nil {
 		return errors.New("postgres: CreateIssue: nil issue")
 	}
-	if issue.ID == "" {
-		return errors.New("postgres: CreateIssue: empty issue ID")
-	}
 	if err := t.setActor(ctx, actor); err != nil {
 		return fmt.Errorf("postgres: set actor: %w", err)
+	}
+	if err := ensureIssueID(ctx, t.tx, t.s.rig, "issues", issue, actor); err != nil {
+		return err
 	}
 
 	const q = `
@@ -162,8 +162,11 @@ func (t *pgTransaction) CreateIssues(ctx context.Context, issues []*types.Issue,
 	defer stmt.Close()
 
 	for _, issue := range issues {
-		if issue == nil || issue.ID == "" {
-			return errors.New("postgres: CreateIssues: invalid issue")
+		if issue == nil {
+			return errors.New("postgres: CreateIssues: nil issue")
+		}
+		if err := ensureIssueID(ctx, t.tx, t.s.rig, "issues", issue, actor); err != nil {
+			return err
 		}
 		_, err := stmt.ExecContext(ctx,
 			issue.ID, t.s.rig, issue.Title, issue.Description, issue.Design,

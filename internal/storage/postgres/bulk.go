@@ -47,8 +47,11 @@ func (s *PostgresStore) CreateIssues(ctx context.Context, issues []*types.Issue,
 		defer stmt.Close()
 
 		for _, issue := range issues {
-			if issue == nil || issue.ID == "" {
-				return errors.New("postgres: CreateIssues: invalid issue")
+			if issue == nil {
+				return errors.New("postgres: CreateIssues: nil issue")
+			}
+			if err := ensureIssueID(ctx, tx, s.rig, "issues", issue, actor); err != nil {
+				return err
 			}
 			_, err := stmt.ExecContext(ctx,
 				issue.ID, s.rig, issue.Title, issue.Description, issue.Design,

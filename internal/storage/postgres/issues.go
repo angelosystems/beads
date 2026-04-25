@@ -19,13 +19,12 @@ func (s *PostgresStore) CreateIssue(ctx context.Context, issue *types.Issue, act
 	if issue == nil {
 		return errors.New("postgres: CreateIssue: nil issue")
 	}
-	if issue.ID == "" {
-		return errors.New("postgres: CreateIssue: empty issue ID")
-	}
-
-	metadata := normalizeMetadata(issue.Metadata)
 
 	return s.withTx(ctx, actor, func(tx *sql.Tx) error {
+		if err := ensureIssueID(ctx, tx, s.rig, "issues", issue, actor); err != nil {
+			return err
+		}
+		metadata := normalizeMetadata(issue.Metadata)
 		const q = `
 			INSERT INTO beads.issues (
 				id, rig, title, description, design, acceptance_criteria, notes,
