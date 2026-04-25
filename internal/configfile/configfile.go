@@ -251,8 +251,20 @@ func (c *Config) GetCapabilities() BackendCapabilities {
 }
 
 // GetBackend returns the backend type. Always returns "dolt".
+// GetBackend returns the configured backend, defaulting to BackendDolt when
+// unset. Honors BackendPostgres when explicitly selected; previously returned
+// BackendDolt unconditionally and was the cause of metadata.json silently
+// reverting from "postgres" to "dolt" on auto-migrate.
 func (c *Config) GetBackend() string {
-	return BackendDolt
+	if c == nil {
+		return BackendDolt
+	}
+	switch c.Backend {
+	case BackendPostgres:
+		return BackendPostgres
+	default:
+		return BackendDolt
+	}
 }
 
 // Dolt mode constants

@@ -164,6 +164,15 @@ func autoMigrateOnVersionBump(beadsDir string) {
 		cfg = configfile.DefaultConfig()
 	}
 
+	// Postgres backend has no per-clone version metadata to migrate; the
+	// schema-migrations table on the server is the source of truth, and the
+	// Dolt-specific NewFromConfig path below would crash or silently rewrite
+	// metadata.json with backend=dolt. Skip cleanly.
+	if cfg.IsPostgresBackend() {
+		debug.Logf("auto-migrate: postgres backend — skipping per-clone version migration")
+		return
+	}
+
 	// Check if database exists at the backend-appropriate path
 	dbPath := cfg.DatabasePath(beadsDir)
 	if _, err := os.Stat(dbPath); os.IsNotExist(err) {
