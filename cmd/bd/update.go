@@ -91,7 +91,13 @@ create, update, show, or close operation).`,
 		}
 		if cmd.Flags().Changed("assignee") {
 			assignee, _ := cmd.Flags().GetString("assignee")
-			updates["assignee"] = assignee
+			if assignee == "" {
+				// Clear semantics: empty flag means unassign. Store NULL, not ''
+				// — claim/idle checks (assignee IS NULL) never match ''.
+				updates["assignee"] = nil
+			} else {
+				updates["assignee"] = assignee
+			}
 		}
 		description, descChanged := getDescriptionFlag(cmd)
 		if descChanged {
