@@ -54,7 +54,7 @@ func (s *PostgresStore) ImportIssueComment(ctx context.Context, issueID, author,
 // GetDependencies (which returns hydrated Issues).
 func (s *PostgresStore) GetDependencyRecords(ctx context.Context, issueID string) ([]*types.Dependency, error) {
 	const q = `
-		SELECT issue_id, depends_on_id, dep_type, created_at, created_by,
+		SELECT issue_id, depends_on_id, type, created_at, created_by,
 		       COALESCE(metadata::text, ''), COALESCE(thread_id, '')
 		FROM beads.dependencies
 		WHERE issue_id = $1 AND rig = $2 AND deleted_at IS NULL
