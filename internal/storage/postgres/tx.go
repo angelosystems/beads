@@ -101,14 +101,14 @@ func (t *pgTransaction) CreateIssue(ctx context.Context, issue *types.Issue, act
 			assignee, created_by, owner,
 			estimated_minutes, started_at, due_at, defer_until,
 			external_ref, spec_id, source_system,
-			metadata
+			ephemeral, metadata
 		) VALUES (
 			$1, $2, $3, $4, $5, $6, $7,
 			$8, $9, $10,
 			$11, $12, $13,
 			$14, $15, $16, $17,
 			$18, $19, $20,
-			$21::jsonb
+			$21, $22::jsonb
 		)
 	`
 	_, err := t.tx.ExecContext(ctx, q,
@@ -121,7 +121,7 @@ func (t *pgTransaction) CreateIssue(ctx context.Context, issue *types.Issue, act
 		timePtrToNull(issue.StartedAt), timePtrToNull(issue.DueAt),
 		timePtrToNull(issue.DeferUntil),
 		stringPtrToNull(issue.ExternalRef), nullString(issue.SpecID),
-		issue.SourceSystem,
+		issue.SourceSystem, issue.Ephemeral,
 		normalizeMetadata(issue.Metadata),
 	)
 	if err != nil {
@@ -145,14 +145,14 @@ func (t *pgTransaction) CreateIssues(ctx context.Context, issues []*types.Issue,
 			assignee, created_by, owner,
 			estimated_minutes, started_at, due_at, defer_until,
 			external_ref, spec_id, source_system,
-			metadata
+			ephemeral, metadata
 		) VALUES (
 			$1, $2, $3, $4, $5, $6, $7,
 			$8, $9, $10,
 			$11, $12, $13,
 			$14, $15, $16, $17,
 			$18, $19, $20,
-			$21::jsonb
+			$21, $22::jsonb
 		)
 	`
 	stmt, err := t.tx.PrepareContext(ctx, q)
@@ -178,7 +178,7 @@ func (t *pgTransaction) CreateIssues(ctx context.Context, issues []*types.Issue,
 			timePtrToNull(issue.StartedAt), timePtrToNull(issue.DueAt),
 			timePtrToNull(issue.DeferUntil),
 			stringPtrToNull(issue.ExternalRef), nullString(issue.SpecID),
-			issue.SourceSystem,
+			issue.SourceSystem, issue.Ephemeral,
 			normalizeMetadata(issue.Metadata),
 		)
 		if err != nil {
